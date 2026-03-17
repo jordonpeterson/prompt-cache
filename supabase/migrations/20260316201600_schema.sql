@@ -54,3 +54,29 @@ create trigger api_keys_updated_at
 create trigger results_updated_at
   before update on results
   for each row execute function update_updated_at();
+
+-- Input Jobs table
+create table input_jobs (
+  job_id uuid primary key default gen_random_uuid(),
+  research_content text not null,
+  contributor_id uuid not null references api_keys(user_id),
+  status text not null default 'NEW' check (status in ('NEW', 'IN_PROCESS', 'REJECTED', 'ACCEPTED')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  result_id uuid references results(id)
+);
+
+alter table input_jobs enable row level security;
+
+create policy "service role full access on input_jobs"
+  on input_jobs for all
+  using (auth.role() = 'service_role')
+  with check (auth.role() = 'service_role');
+
+create index on input_jobs (contributor_id);
+create index on input_jobs (result_id);
+create index on input_jobs (status);
+
+create trigger input_jobs_updated_at
+  before update on input_jobs
+  for each row execute function update_updated_at();
