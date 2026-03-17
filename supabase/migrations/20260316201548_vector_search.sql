@@ -20,6 +20,8 @@ create policy "service role can insert documents"
   on documents for insert
   with check (auth.role() = 'service_role');
 
+create index on documents using hnsw (embedding vector_cosine_ops);
+
 create or replace function match_documents(
   query_embedding vector(1536),
   match_count int default 10,
