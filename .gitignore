@@ -10,3 +10,7 @@ yarn-error.log*
 
 .vscode/*
 /.idea/
+.DS_Store
+
+# Local Supabase secrets (never commit)
+supabase/.env.local
