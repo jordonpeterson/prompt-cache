@@ -1,10 +1,14 @@
+import { useState } from 'react';
 import { useNetwork } from '@/hooks/useNetwork';
 import { useSightings } from '@/hooks/useSightings';
 import { clearAllSightings } from '@/lib/db';
 
+const TEMP_UNIT_KEY = 'scoutlog_temp_unit';
+
 export default function SettingsPage() {
   const { online } = useNetwork();
   const { sightings } = useSightings();
+  const [tempUnit, setTempUnit] = useState(() => localStorage.getItem(TEMP_UNIT_KEY) ?? 'F');
 
   const pendingSync = sightings.filter(s => s.syncStatus === 'pending').length;
   const totalPhotos = sightings.reduce((sum, s) => sum + s.photos.length, 0);
@@ -52,7 +56,11 @@ export default function SettingsPage() {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-300">Temperature Unit</span>
-              <select className="bg-gray-700 text-white text-sm rounded px-2 py-1">
+              <select
+                value={tempUnit}
+                onChange={e => { setTempUnit(e.target.value); localStorage.setItem(TEMP_UNIT_KEY, e.target.value); }}
+                className="bg-gray-700 text-white text-sm rounded px-2 py-1"
+              >
                 <option value="F">°F</option>
                 <option value="C">°C</option>
               </select>

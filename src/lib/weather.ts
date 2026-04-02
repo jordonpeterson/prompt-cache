@@ -13,7 +13,8 @@ const WMO_CODES: Record<number, string> = {
 const WIND_DIRECTIONS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
 
 function degreesToDirection(deg: number): string {
-  return WIND_DIRECTIONS[Math.round(deg / 22.5) % 16];
+  if (!Number.isFinite(deg)) return 'N';
+  return WIND_DIRECTIONS[Math.round(((deg % 360) + 360) % 360 / 22.5) % 16];
 }
 
 const MOON_PHASES = [

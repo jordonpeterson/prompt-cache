@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import MapView from '@/components/MapView';
 import SightingCard from '@/components/SightingCard';
 import SightingForm from '@/components/SightingForm';
@@ -21,6 +22,7 @@ export default function MapPage() {
   const { location } = useLocation();
   const { online } = useNetwork();
   const { registerHandler } = useCamera();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [mode, setMode] = useState<Mode>('map');
   const [selectedSighting, setSelectedSighting] = useState<Sighting | null>(null);
@@ -37,6 +39,14 @@ export default function MapPage() {
   useEffect(() => {
     registerHandler(() => setMode('photo'));
   }, [registerHandler]);
+
+  // Handle openCamera search param from Layout navigation
+  useEffect(() => {
+    if (searchParams.get('openCamera')) {
+      setSearchParams({}, { replace: true });
+      setMode('photo');
+    }
+  }, [searchParams, setSearchParams]);
 
   const handlePinClick = useCallback((sighting: Sighting) => {
     setSelectedSighting(sighting);

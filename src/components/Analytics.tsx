@@ -40,18 +40,17 @@ export default function Analytics({ sightings }: AnalyticsProps) {
       .sort((a, b) => b.count - a.count);
   }, [sightings]);
 
-  const stats = useMemo(() => ({
-    total: sightings.length,
-    species: new Set(sightings.map(s => s.species)).size,
-    withPhotos: sightings.filter(s => s.photos.length > 0).length,
-    avgConfidence: sightings.filter(s => s.aiConfidence != null).length > 0
-      ? Math.round(
-          sightings.filter(s => s.aiConfidence != null)
-            .reduce((sum, s) => sum + s.aiConfidence!, 0) /
-          sightings.filter(s => s.aiConfidence != null).length
-        )
-      : null,
-  }), [sightings]);
+  const stats = useMemo(() => {
+    const withConfidence = sightings.filter(s => s.aiConfidence != null);
+    return {
+      total: sightings.length,
+      species: new Set(sightings.map(s => s.species)).size,
+      withPhotos: sightings.filter(s => s.photos.length > 0).length,
+      avgConfidence: withConfidence.length > 0
+        ? Math.round(withConfidence.reduce((sum, s) => sum + s.aiConfidence!, 0) / withConfidence.length)
+        : null,
+    };
+  }, [sightings]);
 
   if (sightings.length === 0) {
     return (

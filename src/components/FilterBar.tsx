@@ -38,7 +38,7 @@ export default function FilterBar({ filters, onChange }: FilterBarProps) {
   };
 
   const clearAll = () => {
-    onChange({ species: [], timePeriods: [] });
+    onChange({ species: [], timePeriods: [], dateFrom: undefined, dateTo: undefined, hasPhoto: undefined });
   };
 
   return (

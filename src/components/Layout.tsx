@@ -25,9 +25,7 @@ export default function Layout() {
 
   const handleCameraClick = () => {
     if (loc.pathname !== '/') {
-      navigate('/');
-      // Small delay to allow MapPage to mount and register its handler
-      setTimeout(() => triggerCamera(), 50);
+      navigate('/?openCamera=1');
     } else {
       triggerCamera();
     }

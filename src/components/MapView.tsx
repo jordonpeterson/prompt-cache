@@ -104,15 +104,17 @@ export default function MapView({ sightings, onPinClick, onMapClick, selectedId 
 
       // Badge for count > 1
       if (sighting.count > 1) {
+        const countText = sighting.count > 99 ? '99+' : String(sighting.count);
+        const badgeWidth = countText.length > 2 ? '22px' : '16px';
         const badge = document.createElement('span');
         badge.style.cssText = `
           position: absolute; top: -4px; right: -4px;
           background: #e94560; color: white; font-size: 10px;
-          width: 16px; height: 16px; border-radius: 50%;
+          min-width: ${badgeWidth}; height: 16px; border-radius: 8px;
           display: flex; align-items: center; justify-content: center;
-          font-weight: bold;
+          font-weight: bold; padding: 0 2px;
         `;
-        badge.textContent = String(sighting.count);
+        badge.textContent = countText;
         el.style.position = 'relative';
         el.appendChild(badge);
       }
@@ -188,7 +190,7 @@ function getStyleUrl(style: 'streets' | 'satellite'): string {
           source: 'esri-satellite',
         },
       ],
-    } as unknown as string; // MapLibre accepts style objects
+    } as maplibregl.StyleSpecification as unknown as string;
   }
   // OpenFreeMap - completely free, no key needed
   return 'https://tiles.openfreemap.org/styles/liberty';

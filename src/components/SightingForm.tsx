@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Sighting, Activity, SightingType, TimePeriod, SightingSource } from '@/types';
 import { getTimePeriod } from '@/lib/time';
 import { fetchWeather } from '@/lib/weather';
@@ -43,15 +43,24 @@ export default function SightingForm({ latitude, longitude, initialData, onSave,
     moonPhase: initialData?.moonPhase,
   });
 
-  // Auto-fetch weather
+  // Auto-fetch weather with debouncing and cleanup
+  const weatherTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
     if (!online) return;
     setWeatherLoading(true);
-    fetchWeather(latitude, longitude, dateTime || now.toISOString())
-      .then(w => {
-        if (w) setWeather(w);
-      })
-      .finally(() => setWeatherLoading(false));
+    let cancelled = false;
+
+    clearTimeout(weatherTimerRef.current);
+    weatherTimerRef.current = setTimeout(() => {
+      fetchWeather(latitude, longitude, dateTime || now.toISOString())
+        .then(w => { if (w && !cancelled) setWeather(w); })
+        .finally(() => { if (!cancelled) setWeatherLoading(false); });
+    }, 600);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(weatherTimerRef.current);
+    };
   }, [latitude, longitude, dateTime, online]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-update time period when datetime changes
@@ -157,6 +166,7 @@ export default function SightingForm({ latitude, longitude, initialData, onSave,
           <input
             type="datetime-local"
             value={dateTime.slice(0, 16)}
+            max={new Date().toISOString().slice(0, 16)}
             onChange={e => setDateTime(e.target.value)}
             className="w-full bg-gray-700 text-white rounded-lg px-3 py-2.5"
           />

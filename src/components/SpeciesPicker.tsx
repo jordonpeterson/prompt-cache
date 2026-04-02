@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { SPECIES_LIST } from '@/lib/species';
 
 interface SpeciesPickerProps {
@@ -10,8 +10,9 @@ export default function SpeciesPicker({ value, onChange }: SpeciesPickerProps) {
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
 
-  const filtered = SPECIES_LIST.filter(s =>
-    s.name.toLowerCase().includes(search.toLowerCase())
+  const filtered = useMemo(() =>
+    SPECIES_LIST.filter(s => s.name.toLowerCase().includes(search.toLowerCase())),
+    [search]
   );
 
   const selected = SPECIES_LIST.find(s => s.name === value);
