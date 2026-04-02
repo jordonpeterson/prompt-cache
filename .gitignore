@@ -1,5 +1,6 @@
 /tmp
 /out-tsc
+/dist
 
 /node_modules
 npm-debug.log*
@@ -12,5 +13,15 @@ yarn-error.log*
 /.idea/
 .DS_Store
 
+# Environment
+.env
+.env.local
+
 # Local Supabase secrets (never commit)
 supabase/.env.local
+
+# Native builds
+/ios
+/android
+
+*.tsbuildinfo
