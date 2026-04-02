@@ -28,7 +28,7 @@ export default function SightingsList({ sightings, onSelect }: SightingsListProp
           <button
             key={sighting.id}
             onClick={() => onSelect(sighting)}
-            className="w-full bg-gray-800 rounded-xl p-3 flex items-start gap-3 text-left hover:bg-gray-750 transition-colors active:scale-[0.98]"
+            className="w-full bg-gray-800 rounded-xl p-3 flex items-start gap-3 text-left hover:bg-gray-700 transition-colors active:scale-[0.98]"
           >
             {/* Species icon */}
             <span

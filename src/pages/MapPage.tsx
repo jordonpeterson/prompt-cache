@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import MapView from '@/components/MapView';
 import SightingCard from '@/components/SightingCard';
 import SightingForm from '@/components/SightingForm';
@@ -7,7 +7,9 @@ import AIAnalysis from '@/components/AIAnalysis';
 import { useSightings } from '@/hooks/useSightings';
 import { useLocation } from '@/hooks/useLocation';
 import { useNetwork } from '@/hooks/useNetwork';
+import { useCamera } from '@/lib/camera-context';
 import { analyzePhoto, compressImage } from '@/lib/ai';
+import { savePhoto } from '@/lib/db';
 import { getTimePeriod } from '@/lib/time';
 import type { Sighting, AIAnalysisResult } from '@/types';
 import type { ExifData } from '@/lib/exif';
@@ -18,6 +20,7 @@ export default function MapPage() {
   const { sightings, add, update, remove } = useSightings();
   const { location } = useLocation();
   const { online } = useNetwork();
+  const { registerHandler } = useCamera();
 
   const [mode, setMode] = useState<Mode>('map');
   const [selectedSighting, setSelectedSighting] = useState<Sighting | null>(null);
@@ -25,11 +28,15 @@ export default function MapPage() {
   const [formLng, setFormLng] = useState(0);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [photoExif, setPhotoExif] = useState<ExifData | null>(null);
-  const [_photoFile, setPhotoFile] = useState<File | null>(null);
   const [aiResult, setAiResult] = useState<AIAnalysisResult | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | undefined>();
   const [editingSighting, setEditingSighting] = useState<Partial<Sighting> | undefined>();
+
+  // Register camera handler via context (replaces window global)
+  useEffect(() => {
+    registerHandler(() => setMode('photo'));
+  }, [registerHandler]);
 
   const handlePinClick = useCallback((sighting: Sighting) => {
     setSelectedSighting(sighting);
@@ -44,8 +51,7 @@ export default function MapPage() {
     setMode('form');
   }, []);
 
-  const handlePhotoTaken = useCallback(async (file: File, dataUrl: string, exif: ExifData) => {
-    setPhotoFile(file);
+  const handlePhotoTaken = useCallback(async (_file: File, dataUrl: string, exif: ExifData) => {
     setPhotoUrl(dataUrl);
     setPhotoExif(exif);
 
@@ -55,10 +61,19 @@ export default function MapPage() {
     setFormLat(lat);
     setFormLng(lng);
 
-    // Start AI analysis if online
+    // Save photo to IndexedDB (not localStorage)
+    const photoId = crypto.randomUUID();
+    let photoRef: string;
+    try {
+      photoRef = await savePhoto(photoId, dataUrl);
+    } catch {
+      photoRef = dataUrl; // Fallback to data URL if IDB fails
+    }
+
+    // Start AI analysis if online, otherwise show offline message
     setAiResult(null);
-    setAiError(undefined);
     if (online) {
+      setAiError(undefined);
       setAiLoading(true);
       try {
         const compressed = await compressImage(dataUrl);
@@ -70,6 +85,9 @@ export default function MapPage() {
       } finally {
         setAiLoading(false);
       }
+    } else {
+      setAiError('AI identification unavailable offline. You can select species manually.');
+      setAiLoading(false);
     }
 
     setEditingSighting({
@@ -81,8 +99,8 @@ export default function MapPage() {
       timePeriod: getTimePeriod(exif.dateTime ? new Date(exif.dateTime) : new Date()),
       source: 'Photo',
       photos: [{
-        id: crypto.randomUUID(),
-        localPath: dataUrl,
+        id: photoId,
+        localPath: photoRef,
         uploaded: false,
       }],
     });
@@ -112,7 +130,6 @@ export default function MapPage() {
     setMode('map');
     setSelectedSighting(null);
     setPhotoUrl(null);
-    setPhotoFile(null);
     setPhotoExif(null);
     setAiResult(null);
     setEditingSighting(undefined);
@@ -131,16 +148,6 @@ export default function MapPage() {
     setMode('map');
     setSelectedSighting(null);
   }, [remove]);
-
-  // Camera tab handler (triggered from Layout nav)
-  const handleCameraTab = useMemo(() => {
-    return () => setMode('photo');
-  }, []);
-
-  // Expose camera handler on window for the Layout camera button
-  if (typeof window !== 'undefined') {
-    (window as unknown as Record<string, unknown>).__scoutlog_open_camera = handleCameraTab;
-  }
 
   return (
     <>
@@ -212,15 +219,11 @@ export default function MapPage() {
               loading={aiLoading}
               error={aiError}
               onAccept={handleAIAccept}
-              onOverride={() => {
-                // Switch to form with current data so user can pick species manually
-                setMode('form');
-              }}
+              onOverride={() => setMode('form')}
             />
 
             <button
               onClick={() => {
-                // Go to form with all collected data
                 if (aiResult && !editingSighting?.species) {
                   setEditingSighting(prev => ({
                     ...prev,

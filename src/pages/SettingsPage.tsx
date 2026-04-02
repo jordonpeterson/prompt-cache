@@ -1,5 +1,6 @@
 import { useNetwork } from '@/hooks/useNetwork';
 import { useSightings } from '@/hooks/useSightings';
+import { clearAllSightings } from '@/lib/db';
 
 export default function SettingsPage() {
   const { online } = useNetwork();
@@ -84,8 +85,7 @@ export default function SettingsPage() {
           <button
             onClick={() => {
               if (confirm('Delete all sightings? This cannot be undone.')) {
-                localStorage.removeItem('scoutlog_sightings');
-                window.location.reload();
+                clearAllSightings();
               }
             }}
             className="w-full py-2 bg-red-900/30 hover:bg-red-900/50 text-red-400 rounded-lg text-sm font-medium transition-colors"

@@ -1,5 +1,6 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useNetwork } from '@/hooks/useNetwork';
+import { useCamera } from '@/lib/camera-context';
 
 interface Tab {
   to: string;
@@ -19,16 +20,17 @@ const tabs: Tab[] = [
 export default function Layout() {
   const { online } = useNetwork();
   const navigate = useNavigate();
+  const loc = useLocation();
+  const { triggerCamera } = useCamera();
 
   const handleCameraClick = () => {
-    // Navigate to map page and trigger camera
-    navigate('/');
-    setTimeout(() => {
-      const openCamera = (window as unknown as Record<string, unknown>).__scoutlog_open_camera;
-      if (typeof openCamera === 'function') {
-        (openCamera as () => void)();
-      }
-    }, 100);
+    if (loc.pathname !== '/') {
+      navigate('/');
+      // Small delay to allow MapPage to mount and register its handler
+      setTimeout(() => triggerCamera(), 50);
+    } else {
+      triggerCamera();
+    }
   };
 
   return (

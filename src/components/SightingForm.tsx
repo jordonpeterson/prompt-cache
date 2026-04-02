@@ -23,7 +23,7 @@ export default function SightingForm({ latitude, longitude, initialData, onSave,
   const now = new Date();
 
   const [species, setSpecies] = useState(initialData?.species ?? '');
-  const [count, setCount] = useState(initialData?.count ?? 1);
+  const [count, setCount] = useState(Math.max(1, initialData?.count ?? 1));
   const [activity, setActivity] = useState<Activity>(initialData?.activity ?? 'Unknown');
   const [sightingType, setSightingType] = useState<SightingType>(initialData?.sightingType ?? 'LiveAnimal');
   const [timePeriod, setTimePeriod] = useState<TimePeriod>(initialData?.timePeriod ?? getTimePeriod(now));
@@ -35,13 +35,13 @@ export default function SightingForm({ latitude, longitude, initialData, onSave,
     windDirection?: string; humidity?: number; barometricPressure?: number;
     moonPhase?: string; sunrise?: string; sunset?: string;
   }>({
-    weatherCondition: initialData?.weatherCondition,
+    condition: initialData?.weatherCondition,
     temperature: initialData?.temperature,
     windSpeed: initialData?.windSpeed,
     windDirection: initialData?.windDirection,
     humidity: initialData?.humidity,
     moonPhase: initialData?.moonPhase,
-  } as Record<string, unknown>);
+  });
 
   // Auto-fetch weather
   useEffect(() => {

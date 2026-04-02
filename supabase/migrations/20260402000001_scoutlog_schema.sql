@@ -122,7 +122,8 @@ create policy "Users insert own sightings"
 
 create policy "Users update own sightings"
   on public.sightings for update
-  using (auth.uid() = user_id);
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
 
 create policy "Users delete own sightings"
   on public.sightings for delete

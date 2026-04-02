@@ -160,8 +160,28 @@ export default function MapView({ sightings, onPinClick, onMapClick, selectedId 
 
 function getStyleUrl(style: 'streets' | 'satellite'): string {
   if (style === 'satellite') {
-    // Using a free satellite style - users can swap in Mapbox/Maptiler keys for better tiles
-    return 'https://api.maptiler.com/maps/hybrid/style.json?key=get_your_own_OpIi9ZULNHzrESv6T2vL';
+    // Free Esri World Imagery raster tiles — no API key needed
+    return {
+      version: 8 as const,
+      sources: {
+        'esri-satellite': {
+          type: 'raster' as const,
+          tiles: [
+            'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+          ],
+          tileSize: 256,
+          attribution: 'Esri, Maxar, Earthstar Geographics',
+          maxzoom: 18,
+        },
+      },
+      layers: [
+        {
+          id: 'esri-satellite-layer',
+          type: 'raster' as const,
+          source: 'esri-satellite',
+        },
+      ],
+    } as unknown as string; // MapLibre accepts style objects
   }
   // OpenFreeMap - completely free, no key needed
   return 'https://tiles.openfreemap.org/styles/liberty';

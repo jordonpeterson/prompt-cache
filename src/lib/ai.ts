@@ -32,7 +32,7 @@ export async function analyzePhoto(base64Image: string): Promise<AIAnalysisResul
 }
 
 export function compressImage(dataUrl: string, maxSize: number = 1024): Promise<string> {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
       const canvas = document.createElement('canvas');
@@ -50,10 +50,15 @@ export function compressImage(dataUrl: string, maxSize: number = 1024): Promise<
 
       canvas.width = width;
       canvas.height = height;
-      const ctx = canvas.getContext('2d')!;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(dataUrl); // Fall back to original if canvas unavailable
+        return;
+      }
       ctx.drawImage(img, 0, 0, width, height);
       resolve(canvas.toDataURL('image/jpeg', 0.8));
     };
+    img.onerror = () => reject(new Error('Failed to load image for compression'));
     img.src = dataUrl;
   });
 }
