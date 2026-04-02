@@ -18,7 +18,7 @@ export default function LogPage() {
       if (filters.species.length > 0 && !filters.species.includes(s.species)) return false;
       if (filters.timePeriods.length > 0 && !filters.timePeriods.includes(s.timePeriod)) return false;
       if (filters.dateFrom && s.sightedAt < filters.dateFrom) return false;
-      if (filters.dateTo && s.sightedAt > filters.dateTo + 'T23:59:59') return false;
+      if (filters.dateTo && s.sightedAt > filters.dateTo + 'T23:59:59.999Z') return false;
       if (filters.hasPhoto && s.photos.length === 0) return false;
       if (search) {
         const q = search.toLowerCase();
@@ -77,7 +77,7 @@ export default function LogPage() {
             setEditing(null);
           }}
           onCancel={() => setEditing(null)}
-          photoUrl={editing.photos[0]?.localPath}
+          photoUrl={editing.photos[0]?.localPath ?? editing.photos[0]?.remoteUrl}
         />
       )}
     </div>

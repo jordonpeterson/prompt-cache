@@ -149,7 +149,7 @@ export default function MapPage() {
     setEditingSighting(sighting);
     setFormLat(sighting.latitude);
     setFormLng(sighting.longitude);
-    setPhotoUrl(sighting.photos[0]?.localPath ?? null);
+    setPhotoUrl(sighting.photos[0]?.localPath ?? sighting.photos[0]?.remoteUrl ?? null);
     setMode('form');
   }, []);
 

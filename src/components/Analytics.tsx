@@ -109,8 +109,8 @@ export default function Analytics({ sightings }: AnalyticsProps) {
                 label={({ name, count }) => `${name} (${count})`}
                 labelLine={{ stroke: '#6B7280' }}
               >
-                {speciesData.map((entry, i) => (
-                  <Cell key={i} fill={entry.color} />
+                {speciesData.map((entry) => (
+                  <Cell key={entry.name} fill={entry.color} />
                 ))}
               </Pie>
               <Tooltip

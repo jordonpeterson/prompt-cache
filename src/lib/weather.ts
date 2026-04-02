@@ -45,14 +45,15 @@ export async function fetchWeather(lat: number, lng: number, dateISO: string): P
     const data = await res.json();
     const hourly = data.hourly;
     const daily = data.daily;
+    const idx = Math.min(hour, (hourly.temperature_2m?.length ?? 1) - 1);
 
     return {
-      condition: WMO_CODES[hourly.weather_code[hour]] ?? 'Unknown',
-      temperature: Math.round(hourly.temperature_2m[hour]),
-      windSpeed: Math.round(hourly.wind_speed_10m[hour]),
-      windDirection: degreesToDirection(hourly.wind_direction_10m[hour]),
-      humidity: Math.round(hourly.relative_humidity_2m[hour]),
-      barometricPressure: Math.round(hourly.surface_pressure[hour] * 0.02953 * 100) / 100, // hPa → inHg
+      condition: WMO_CODES[hourly.weather_code?.[idx]] ?? 'Unknown',
+      temperature: Math.round(hourly.temperature_2m?.[idx] ?? 0),
+      windSpeed: Math.round(hourly.wind_speed_10m?.[idx] ?? 0),
+      windDirection: degreesToDirection(hourly.wind_direction_10m?.[idx] ?? 0),
+      humidity: Math.round(hourly.relative_humidity_2m?.[idx] ?? 0),
+      barometricPressure: Math.round((hourly.surface_pressure?.[idx] ?? 0) * 0.02953 * 100) / 100, // hPa → inHg
       moonPhase: dayOfYearMoonPhase(date),
       sunrise: daily.sunrise?.[0]?.split('T')[1] ?? '',
       sunset: daily.sunset?.[0]?.split('T')[1] ?? '',

@@ -52,7 +52,7 @@ export default function SightingForm({ latitude, longitude, initialData, onSave,
 
     clearTimeout(weatherTimerRef.current);
     weatherTimerRef.current = setTimeout(() => {
-      fetchWeather(latitude, longitude, dateTime || now.toISOString())
+      fetchWeather(latitude, longitude, dateTime || new Date().toISOString())
         .then(w => { if (w && !cancelled) setWeather(w); })
         .finally(() => { if (!cancelled) setWeatherLoading(false); });
     }, 600);

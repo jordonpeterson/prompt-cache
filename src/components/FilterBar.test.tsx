@@ -76,15 +76,27 @@ describe('FilterBar', () => {
     );
   });
 
-  it('clears all filters', async () => {
+  it('clears all filters including date range and hasPhoto', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
-    const filters: Filters = { species: ['Elk'], timePeriods: ['Morning'] };
+    const filters: Filters = {
+      species: ['Elk'],
+      timePeriods: ['Morning'],
+      dateFrom: '2026-03-01',
+      dateTo: '2026-04-01',
+      hasPhoto: true,
+    };
     renderWithProviders(<FilterBar filters={filters} onChange={onChange} />);
 
     await user.click(screen.getByText('Clear all'));
 
-    expect(onChange).toHaveBeenCalledWith({ species: [], timePeriods: [] });
+    expect(onChange).toHaveBeenCalledWith({
+      species: [],
+      timePeriods: [],
+      dateFrom: undefined,
+      dateTo: undefined,
+      hasPhoto: undefined,
+    });
   });
 
   it('date range inputs work', async () => {

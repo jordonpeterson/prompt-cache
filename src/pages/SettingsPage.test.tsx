@@ -138,4 +138,18 @@ describe('SettingsPage', () => {
     const select = screen.getByDisplayValue('°F');
     expect(select).toBeInTheDocument();
   });
+
+  it('persists temperature unit change to localStorage', () => {
+    renderWithProviders(<SettingsPage />);
+    const select = screen.getByDisplayValue('°F');
+    fireEvent.change(select, { target: { value: 'C' } });
+
+    expect(localStorage.getItem('scoutlog_temp_unit')).toBe('C');
+  });
+
+  it('loads saved temperature unit from localStorage', () => {
+    localStorage.setItem('scoutlog_temp_unit', 'C');
+    renderWithProviders(<SettingsPage />);
+    expect(screen.getByDisplayValue('°C')).toBeInTheDocument();
+  });
 });

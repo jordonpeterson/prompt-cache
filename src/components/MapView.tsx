@@ -55,8 +55,8 @@ export default function MapView({ sightings, onPinClick, onMapClick, selectedId 
 
     map.current.on('click', (e) => {
       // Only trigger if not clicking on a marker
-      const target = e.originalEvent.target as HTMLElement;
-      if (target.closest('.sighting-marker')) return;
+      const target = e.originalEvent.target as HTMLElement | null;
+      if (target?.closest?.('.sighting-marker')) return;
       onMapClickRef.current(e.lngLat.lat, e.lngLat.lng);
     });
 
