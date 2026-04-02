@@ -76,11 +76,11 @@ export default function AIAnalysis({ result, loading, error, onAccept, onOverrid
       {/* Alternatives */}
       {result.alternatives.length > 0 && (
         <div className="mb-3 space-y-1">
-          {result.alternatives.map((alt) => {
+          {result.alternatives.map((alt, idx) => {
             const altInfo = getSpeciesInfo(alt.species);
             return (
               <button
-                key={`${alt.species}-${alt.confidence}`}
+                key={`${alt.species}-${alt.confidence}-${idx}`}
                 onClick={() => onAccept(alt.species)}
                 className="w-full flex items-center gap-2 px-2 py-1.5 bg-gray-700/50 rounded hover:bg-gray-600 transition-colors"
               >

@@ -134,14 +134,20 @@ export function updateSighting(id: string, updates: Partial<Sighting>): Sighting
 
 export function deleteSighting(id: string): boolean {
   const all = loadSightingsRaw();
+  const toDelete = all.find(s => s.id === id);
+  if (!toDelete) return false;
+  // Clean up photos from IndexedDB (fire-and-forget)
+  toDelete.photos.forEach(p => deletePhoto(p.id).catch(() => {}));
   const filtered = all.filter(s => s.id !== id);
-  if (filtered.length === all.length) return false;
   saveSightingsRaw(filtered);
   notify();
   return true;
 }
 
 export function clearAllSightings(): void {
+  const all = loadSightingsRaw();
+  // Clean up all photos from IndexedDB (fire-and-forget)
+  all.forEach(s => s.photos.forEach(p => deletePhoto(p.id).catch(() => {})));
   saveSightingsRaw([]);
   notify();
 }

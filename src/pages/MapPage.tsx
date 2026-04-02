@@ -87,7 +87,9 @@ export default function MapPage() {
       setAiLoading(true);
       try {
         const compressed = await compressImage(dataUrl);
-        const base64 = compressed.split(',')[1];
+        const parts = compressed.split(',');
+        const base64 = parts.length > 1 ? parts[1] : compressed;
+        if (!base64) throw new Error('Failed to encode image');
         const result = await analyzePhoto(base64);
         setAiResult(result);
       } catch (err) {
