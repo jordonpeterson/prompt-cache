@@ -159,14 +159,20 @@ Deno.serve(async (req) => {
     const text = data.content?.[0]?.text ?? "";
 
     // Parse JSON from response
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    const jsonMatch = text.match(/\{[\s\S]*?\}/);
     if (!jsonMatch) {
       return jsonResponse({ error: "Could not parse AI response" }, 502);
     }
 
-    const raw = JSON.parse(jsonMatch[0]);
+    let raw;
+    try {
+      raw = JSON.parse(jsonMatch[0]);
+    } catch {
+      return jsonResponse({ error: "Could not parse AI response" }, 502);
+    }
 
-    // Sanitize: only return expected fields
+    // Sanitize: only return expected fields with enum validation
+    const VALID_SIGHTING_TYPES = ["LiveAnimal", "Tracks", "Scrape", "Rub", "Scat", "Wallow", "Bed", "Other"];
     const result = {
       species: typeof raw.species === "string" ? raw.species.slice(0, 100) : "Unknown",
       confidence: typeof raw.confidence === "number" ? Math.min(100, Math.max(0, Math.round(raw.confidence))) : 0,
@@ -176,7 +182,7 @@ Deno.serve(async (req) => {
             confidence: typeof a.confidence === "number" ? Math.min(100, Math.max(0, Math.round(a.confidence))) : 0,
           }))
         : [],
-      sightingType: typeof raw.sightingType === "string" ? raw.sightingType.slice(0, 50) : "LiveAnimal",
+      sightingType: VALID_SIGHTING_TYPES.includes(raw.sightingType) ? raw.sightingType : "LiveAnimal",
       count: typeof raw.count === "number" ? Math.min(99, Math.max(1, Math.round(raw.count))) : 1,
       sex: typeof raw.sex === "string" ? raw.sex.slice(0, 50) : null,
       notes: typeof raw.notes === "string" ? raw.notes.slice(0, 500) : null,
