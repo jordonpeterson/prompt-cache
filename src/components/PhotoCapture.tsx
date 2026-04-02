@@ -20,8 +20,12 @@ export default function PhotoCapture({ onPhotoTaken, onCancel }: PhotoCapturePro
       onPhotoTaken(file, dataUrl, exif);
     } catch {
       // If EXIF extraction fails, still proceed with photo
-      const dataUrl = await readFileAsDataUrl(file);
-      onPhotoTaken(file, dataUrl, {});
+      try {
+        const dataUrl = await readFileAsDataUrl(file);
+        onPhotoTaken(file, dataUrl, {});
+      } catch {
+        // File read also failed — nothing we can do
+      }
     } finally {
       setProcessing(false);
     }
@@ -29,7 +33,7 @@ export default function PhotoCapture({ onPhotoTaken, onCancel }: PhotoCapturePro
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) handleFile(file);
+    if (file) handleFile(file).catch(() => setProcessing(false));
   };
 
   return (

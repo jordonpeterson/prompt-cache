@@ -138,6 +138,14 @@ create policy "Users update own profile"
   on public.profiles for update
   using (auth.uid() = id);
 
+create policy "Users insert own profile"
+  on public.profiles for insert
+  with check (auth.uid() = id);
+
+create policy "Users delete own profile"
+  on public.profiles for delete
+  using (auth.uid() = id);
+
 -- Storage bucket for photos
 insert into storage.buckets (id, name, public) values ('sighting-photos', 'sighting-photos', false);
 
@@ -161,4 +169,15 @@ create policy "Users delete own photos"
   using (
     bucket_id = 'sighting-photos' and
     auth.uid()::text = (storage.foldername(name))[1]
+  );
+
+create policy "Anyone reads photos of public sightings"
+  on storage.objects for select
+  using (
+    bucket_id = 'sighting-photos' and
+    exists (
+      select 1 from public.sightings
+      where sightings.user_id::text = (storage.foldername(name))[1]
+        and sightings.is_public = true
+    )
   );

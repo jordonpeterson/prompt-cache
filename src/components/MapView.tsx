@@ -19,6 +19,13 @@ export default function MapView({ sightings, onPinClick, onMapClick, selectedId 
   const [mapReady, setMapReady] = useState(false);
   const [style, setStyle] = useState<'streets' | 'satellite'>('streets');
 
+  // Refs to avoid stale closures in map event handlers
+  const onMapClickRef = useRef(onMapClick);
+  useEffect(() => { onMapClickRef.current = onMapClick; }, [onMapClick]);
+
+  const onPinClickRef = useRef(onPinClick);
+  useEffect(() => { onPinClickRef.current = onPinClick; }, [onPinClick]);
+
   // Initialize map
   useEffect(() => {
     if (!mapContainer.current || map.current) return;
@@ -50,7 +57,7 @@ export default function MapView({ sightings, onPinClick, onMapClick, selectedId 
       // Only trigger if not clicking on a marker
       const target = e.originalEvent.target as HTMLElement;
       if (target.closest('.sighting-marker')) return;
-      onMapClick(e.lngLat.lat, e.lngLat.lng);
+      onMapClickRef.current(e.lngLat.lat, e.lngLat.lng);
     });
 
     return () => {
@@ -92,7 +99,7 @@ export default function MapView({ sightings, onPinClick, onMapClick, selectedId 
       el.textContent = info.emoji;
       el.addEventListener('click', (e) => {
         e.stopPropagation();
-        onPinClick(sighting);
+        onPinClickRef.current(sighting);
       });
 
       // Badge for count > 1
@@ -130,7 +137,7 @@ export default function MapView({ sightings, onPinClick, onMapClick, selectedId 
 
       markers.current.push(marker);
     });
-  }, [sightings, selectedId, onPinClick, mapReady]);
+  }, [sightings, selectedId, mapReady]);
 
   useEffect(() => {
     updateMarkers();

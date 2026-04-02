@@ -45,7 +45,7 @@ export default function SightingCard({ sighting, onClose, onEdit, onDelete, expa
         </div>
 
         {/* Photo thumbnail / expanded */}
-        {sighting.photos.length > 0 && (
+        {sighting.photos.length > 0 && (sighting.photos[0].localPath || sighting.photos[0].remoteUrl) && (
           <div
             className={`mx-4 mb-3 rounded-lg overflow-hidden cursor-pointer transition-all ${
               expanded ? 'max-h-96' : 'max-h-32'
