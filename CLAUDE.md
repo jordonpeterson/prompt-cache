@@ -1,134 +1,112 @@
-# prompt-cache
+# ScoutLog
 
-A Supabase-backed service for storing and semantically searching cached prompt results using OpenAI embeddings.
+A mobile-first wildlife scouting app for hunters. Snap a photo, and the app logs GPS, time, weather, and AI-identified species automatically.
 
 ## Stack
 
-- **Database**: Supabase (Postgres + pgvector)
-- **Edge Functions**: Deno (Supabase Edge Functions)
-- **Embeddings**: OpenAI `text-embedding-3-small` (1536 dimensions)
+- **Frontend**: React 19 + Vite + TypeScript + Tailwind CSS 4
+- **Native**: Capacitor 8 (iOS/Android App Store distribution)
+- **Maps**: MapLibre GL JS (free, open-source)
+- **Local DB**: localStorage (web) / SQLite via Capacitor (native)
+- **Backend**: Supabase (Postgres, Auth, Storage, Edge Functions)
+- **AI**: Claude Haiku 4.5 vision (via Supabase Edge Function)
+- **Weather**: Open-Meteo API (free, no key needed)
+- **EXIF**: exifr (client-side extraction)
 
 ## Local Development
 
 ```bash
-# Start local Supabase stack
+# Install dependencies
+npm install
+
+# Start dev server
+npm run dev
+
+# Build for production
+npm run build
+
+# Start local Supabase
 npx supabase start
 
-# Reset DB and reapply all migrations
+# Reset DB with ScoutLog schema
 npx supabase db reset
-
-# Run via Docker if psql not installed locally
-docker exec supabase_db_prompt-cache psql -U postgres -d postgres -c "<SQL>"
 ```
 
-Local URLs after `supabase start`:
-- API: `http://127.0.0.1:54321`
-- Studio: `http://127.0.0.1:54323`
-- DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`
+Local URLs:
+- App: `http://localhost:3000`
+- Supabase API: `http://127.0.0.1:54321`
+- Supabase Studio: `http://127.0.0.1:54323`
+
+## Environment Variables
+
+Copy `.env.example` to `.env` and fill in:
+```
+VITE_SUPABASE_URL=http://127.0.0.1:54321
+VITE_SUPABASE_ANON_KEY=your-anon-key
+```
+
+For AI analysis edge function:
+```bash
+npx supabase secrets set ANTHROPIC_API_KEY=your-key
+```
+
+## Project Structure
+
+```
+src/
+├── main.tsx              # Entry point
+├── App.tsx               # Router setup
+├── components/           # UI components
+│   ├── MapView.tsx       # MapLibre map with sighting pins
+│   ├── SightingCard.tsx  # Slide-up detail card
+│   ├── SightingForm.tsx  # New/edit sighting form
+│   ├── PhotoCapture.tsx  # Camera/gallery picker
+│   ├── AIAnalysis.tsx    # AI identification display
+│   ├── FilterBar.tsx     # Species/date/time filters
+│   ├── SightingsList.tsx # Chronological log
+│   ├── Analytics.tsx     # Charts and stats
+│   ├── SpeciesPicker.tsx # Species selection
+│   └── Layout.tsx        # App shell + bottom nav
+├── lib/                  # Core utilities
+│   ├── db.ts             # Local database (CRUD)
+│   ├── weather.ts        # Open-Meteo client
+│   ├── exif.ts           # EXIF extraction
+│   ├── ai.ts             # AI analysis client
+│   ├── species.ts        # Species list + colors
+│   ├── time.ts           # Time utilities
+│   └── supabase.ts       # Supabase client
+├── hooks/                # React hooks
+│   ├── useSightings.ts   # Sighting CRUD
+│   ├── useLocation.ts    # GPS position
+│   └── useNetwork.ts     # Online/offline
+├── pages/                # Route pages
+│   ├── MapPage.tsx       # Map (home)
+│   ├── LogPage.tsx       # Sightings list
+│   ├── AnalyticsPage.tsx # Charts
+│   └── SettingsPage.tsx  # Settings
+└── types/
+    └── index.ts          # TypeScript types
+```
 
 ## Database Schema
 
-### `api_keys`
-Represents API consumers with access credentials.
+Single migration: `supabase/migrations/20260402000001_scoutlog_schema.sql`
 
-| Column | Type | Notes |
-|---|---|---|
-| `user_id` | uuid PK | Auto-generated |
-| `name` | text | Display name |
-| `permissions` | text | `READ` or `WRITE` |
-| `number_of_contributions` | int | Defaults to 0 |
-| `created_at` | timestamptz | Set on insert |
-| `updated_at` | timestamptz | Auto-updated via trigger |
-
-### `results`
-Cached prompt results with semantic embeddings.
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | uuid PK | Auto-generated |
-| `title` | text | |
-| `description` | text | |
-| `embedding` | vector(1536) | OpenAI embedding |
-| `contributor_id` | uuid FK | → `api_keys.user_id` |
-| `number_of_queries` | int | Defaults to 0 |
-| `created_at` | timestamptz | Set on insert |
-| `updated_at` | timestamptz | Auto-updated via trigger |
-
-### `input_jobs`
-Tracks incoming research submissions through their processing lifecycle.
-
-| Column | Type | Notes |
-|---|---|---|
-| `job_id` | uuid PK | Auto-generated |
-| `research_content` | text | Raw input content |
-| `contributor_id` | uuid FK | → `api_keys.user_id` |
-| `status` | text | `NEW` \| `IN_PROCESS` \| `REJECTED` \| `ACCEPTED` |
-| `result_id` | uuid FK (nullable) | → `results.id`, set when accepted |
-| `created_at` | timestamptz | Set on insert |
-| `updated_at` | timestamptz | Auto-updated via trigger |
-
-### `profiles`
-One row per `auth.users` entry, auto-created by the `on_auth_user_created` trigger.
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | uuid PK | FK → `auth.users(id)` ON DELETE CASCADE |
-| `first_name` | text | From `raw_user_meta_data` at signup |
-| `last_name` | text | From `raw_user_meta_data` at signup |
-| `avatar_url` | text | Nullable |
-| `created_at` | timestamptz | Set on insert |
-| `updated_at` | timestamptz | Auto-updated via trigger |
-
-RLS: authenticated users can view/update their own row only.
-
-### `documents` (legacy/search index)
-Stores documents for vector similarity search.
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | uuid PK | |
-| `content` | text | |
-| `metadata` | jsonb | |
-| `embedding` | vector(1536) | HNSW indexed |
-| `created_at` | timestamptz | |
-
-## Migrations
-
-All migrations live in `supabase/migrations/`. Apply with `npx supabase db reset`.
-
-| File | Description |
-|---|---|
-| `20260316201548_vector_search.sql` | pgvector extension, `documents` table, `match_documents` RPC, RLS |
-| `20260316201600_schema.sql` | `api_keys`, `results`, `input_jobs` tables, RLS, HNSW indexes, triggers |
-| `20260316202000_profiles.sql` | `profiles` table, `handle_new_user` trigger, RLS |
+### `profiles` - User profiles (auto-created from auth)
+### `sightings` - Wildlife sighting records with location, species, weather, AI data, photos
 
 ## Edge Functions
 
-### `search`
-Performs semantic similarity search over the `documents` table.
+### `analyze-photo`
+Sends photo to Claude Haiku 4.5 vision for wildlife identification.
+- **Method**: POST
+- **Body**: `{ image: string }` (base64 JPEG)
+- **Response**: `{ species, confidence, alternatives, sightingType, count, sex, notes }`
 
-- **Auth**: `x-api-key` header validated against `SEARCH_API_KEY` env var
-- **Method**: `POST`
-- **Body**: `{ query: string, match_count?: number, match_threshold?: number }`
-- **Response**: `{ results: [{ id, content, metadata, similarity }] }`
+## Key Features
 
-Required secrets:
-```bash
-npx supabase secrets set SEARCH_API_KEY=<key>
-npx supabase secrets set OPENAI_API_KEY=<key>
-```
-
-## Tests
-
-pgTAP tests live in `supabase/tests/database/`. Run with:
-```bash
-npx supabase test db
-```
-
-| File | Coverage |
-|---|---|
-| `01_profiles_trigger.sql` | profiles table shape, trigger insert, cascade delete, RLS anon block |
-
-## RLS
-
-All tables use RLS with `service_role`-only access policies. The edge functions use the `SUPABASE_SERVICE_ROLE_KEY` env var and therefore bypass RLS as intended.
+- **Offline-first**: All data stored locally, syncs when online
+- **Photo flow**: Camera → EXIF extraction → weather auto-fill → AI identification → confirm
+- **Map view**: Color-coded species pins on MapLibre map (satellite/streets toggle)
+- **Analytics**: Time-of-day activity, species breakdown, weather correlations
+- **3-tap workflow**: Camera → confirm species → save
