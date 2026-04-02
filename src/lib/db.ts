@@ -7,13 +7,20 @@ const PHOTO_STORE = 'photos';
 
 // --- IndexedDB for photo blobs (avoids localStorage size limits) ---
 
+let photoDB: IDBDatabase | null = null;
+
 function openPhotoDB(): Promise<IDBDatabase> {
+  if (photoDB) return Promise.resolve(photoDB);
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(PHOTO_DB_NAME, 1);
     req.onupgradeneeded = () => {
       req.result.createObjectStore(PHOTO_STORE);
     };
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => {
+      photoDB = req.result;
+      photoDB.onclose = () => { photoDB = null; };
+      resolve(photoDB);
+    };
     req.onerror = () => reject(req.error);
   });
 }

@@ -78,7 +78,7 @@ export default function SightingsList({ sightings, onSelect }: SightingsListProp
                 {sighting.temperature != null && (
                   <span className="px-1.5 py-0.5 bg-gray-700 text-gray-400 rounded text-[10px]">{sighting.temperature}°F</span>
                 )}
-                {sighting.windDirection && (
+                {sighting.windDirection && sighting.windSpeed != null && (
                   <span className="px-1.5 py-0.5 bg-gray-700 text-gray-400 rounded text-[10px]">
                     {sighting.windDirection} {sighting.windSpeed}mph
                   </span>
