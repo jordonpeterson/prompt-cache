@@ -1,0 +1,14 @@
+# Drafts are dormant but visible; publishing resumes the loop.
+pr:
+  repo: acme/web
+  number: 14
+  enrollment: triggered
+  draft: true
+  checks: { lint: failure }
+timeline:
+  - { tick: 1 }
+  - expect: { state: draft_paused, remediation_triggers_total: 0 } # no actions on drafts
+  - { isDraft: false, advance: 4h, tick: 1 }
+  - expect: { remediation_triggered: eslint-autofix, state: awaiting_remediation }
+  - { advance: 130s, headSha: fix999, checks: { lint: success }, tick: 1 }
+  - expect_terminal: merged

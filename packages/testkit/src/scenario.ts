@@ -25,9 +25,12 @@ export interface Scenario {
     draft?: boolean;
     headSha?: string;
     mergeable?: PrSnapshot['mergeable'];
+    behindBase?: boolean;
     checks?: Record<string, string>;
-    /** 'triggered' enrolls via the API path with end_action merge. */
+    /** 'triggered' enrolls via the API path. */
     enrollment?: 'passive' | 'triggered';
+    /** End action stamped on triggered enrollment (default 'merge'). */
+    endAction?: 'merge' | 'notify_ready';
   };
   timeline: TimelineEntry[];
 }
@@ -57,6 +60,9 @@ export interface Expectation {
   escalated?: string; // substring of the escalation reason
   merged_on_host?: boolean;
   notified?: 'escalated' | 'ready' | 'merged';
+  check_retries?: number;
+  branch_updates?: number;
+  remediation_triggers_total?: number;
 }
 
 export interface TimelinePoint {
@@ -109,6 +115,7 @@ export async function runScenario(yamlText: string, worldOptions: WorldOptions =
       isDraft: scenario.pr.draft ?? false,
       headSha: scenario.pr.headSha ?? 'abc123',
       mergeable: scenario.pr.mergeable ?? 'mergeable',
+      behindBase: scenario.pr.behindBase ?? false,
       checks: toChecks(scenario.pr.checks ?? {}),
       lastActivityAt: clock.now(),
     }),
@@ -117,7 +124,7 @@ export async function runScenario(yamlText: string, worldOptions: WorldOptions =
   await ingestion.ingest(
     snapshot,
     scenario.pr.enrollment === 'triggered'
-      ? { source: 'api', endAction: { kind: 'merge' } }
+      ? { source: 'api', endAction: { kind: scenario.pr.endAction ?? 'merge' } }
       : { source: 'label', campaignLabel: scenario.pr.labels?.[0] },
   );
 
@@ -168,6 +175,24 @@ export async function runScenario(yamlText: string, worldOptions: WorldOptions =
           throw failure(stepNo, `expected '${expectation.notified}' notification; got: ${notifier.events.map((e) => e.kind).join(', ') || '(none)'}`, stateTimeline);
         }
       }
+      if (expectation.check_retries !== undefined) {
+        const actual = codeHost.checkRetries.filter((r) => r.id === prId).length;
+        if (actual !== expectation.check_retries) {
+          throw failure(stepNo, `expected ${expectation.check_retries} check retr(ies), got ${actual}`, stateTimeline);
+        }
+      }
+      if (expectation.branch_updates !== undefined) {
+        const actual = codeHost.branchUpdates.filter((u) => u.id === prId).length;
+        if (actual !== expectation.branch_updates) {
+          throw failure(stepNo, `expected ${expectation.branch_updates} branch update(s), got ${actual}`, stateTimeline);
+        }
+      }
+      if (expectation.remediation_triggers_total !== undefined) {
+        const actual = remediationService.triggers.length;
+        if (actual !== expectation.remediation_triggers_total) {
+          throw failure(stepNo, `expected ${expectation.remediation_triggers_total} remediation trigger(s) total, got ${actual}`, stateTimeline);
+        }
+      }
       auditCursor = (await audit.list(prId)).length;
       continue;
     }
@@ -197,7 +222,6 @@ export async function runScenario(yamlText: string, worldOptions: WorldOptions =
   }
 
   const record = (await prs.get(prId))!;
-  void remediationService;
   return { world, prId, record, stateTimeline };
 }
 

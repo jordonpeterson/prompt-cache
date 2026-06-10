@@ -1,0 +1,13 @@
+# No activity for 30+ days → escalate to a human; a push resumes the loop.
+pr:
+  repo: acme/web
+  number: 15
+  labels: [auto-shepherd]
+  checks: { review-wait: pending }
+timeline:
+  - { tick: 1 }
+  - expect: { state: awaiting_checks }
+  - { advance: 31d, tick: 1 }
+  - expect: { state: escalated, escalated: stale, notified: escalated }
+  - { headSha: revived-1, checks: { review-wait: success }, lastActivityAt: 2026-02-01T00:00:00Z, advance: 1h, tick: 1 }
+  - expect_terminal: merged

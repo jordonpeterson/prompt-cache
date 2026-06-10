@@ -98,12 +98,15 @@ The safety bar is the **matcher/response split**: a catalog entry's `match` is d
 
 ## Testing contract
 
-1. **Unit** — matcher, resolver (both merge rules), merge policy, debounce math. Pure.
-2. **Integration** — controller + fakes for every port + injected clock + manual `tick()` (`packages/testkit/test/controller.test.ts`).
-3. **Contract** — GitHub adapter runs read-only assertions against the real API when `GITHUB_CONTRACT=1`; the fake's semantics (incl. server-side idempotency dedupe) are themselves tested.
-4. **e2e (hermetic)** — YAML scenario fixtures drive a timeline; assert terminal state + recorded outbound calls. `npm run replay -- <scenario>` dumps the timeline for debugging.
+Everything below the gated suites is hermetic — fakes/stubs only, no network, deterministic clock.
 
-Plus the one non-hermetic suite: real `PrRepository`/`UnitOfWork` against Postgres via Testcontainers (`npm run test:pg`).
+1. **Unit** — matcher, resolver (both merge rules), merge policy, debounce math, idempotency-key formats, DB row mapping incl. Zod rejection of corrupt JSONB. Pure.
+2. **Adapter (stubbed wire)** — `GitHubCodeHost` against a stubbed Octokit (snapshot mapping, ETag/304 replay, merge idempotency, log bounding), the remediation HTTP client against a stubbed `fetch` (bearer auth, 5xx ≠ decline, malformed-ack rejection, task routing), the Slack transport against a stubbed `WebClient`.
+3. **Integration** — controller + fakes for every port + injected clock + manual `tick()`: fire-and-wait, attempt caps, restart/replay safety, cadence tiers, claim limits, guardrails and per-PR overrides through the full loop (`packages/testkit/test/controller*.test.ts`), plus ingestion/enrollment sweeps and an HTTP→loop flow test (`apps/shepherd/test/flow.test.ts`).
+4. **Contract** — the GitHub adapter runs read-only assertions against the real API when `GITHUB_CONTRACT=1`; the fakes' semantics (incl. the task server's idempotency dedupe) are themselves tested.
+5. **e2e (hermetic)** — YAML scenario fixtures in `packages/testkit/test/scenarios/` drive timelines (autofix→merge, retry-flaky, conflict exhaustion, behind-base update, notify-ready, draft pause/resume, stale escalation, external close); assert terminal state + recorded outbound calls. `npm run replay -- <scenario>` dumps the timeline for debugging.
+
+Plus the one non-hermetic suite: real `PrRepository`/`UnitOfWork` against Postgres via Testcontainers (`npm run test:pg`). CI (`.github/workflows/ci.yml`) runs typecheck + the hermetic suite + the Postgres suite.
 
 ## Deviations from the design doc
 

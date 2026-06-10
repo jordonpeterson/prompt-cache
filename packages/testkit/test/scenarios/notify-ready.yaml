@@ -1,0 +1,14 @@
+# End action notify_ready: the shepherd reports green and stops short of merging.
+pr:
+  repo: acme/web
+  number: 13
+  enrollment: triggered
+  endAction: notify_ready
+  checks: { lint: pending }
+timeline:
+  - { tick: 1 }
+  - expect: { state: awaiting_checks }
+  - { advance: 30s, checks: { lint: success }, tick: 1 }
+  - expect: { state: ready, notified: ready, merged_on_host: false }
+  - { advance: 300s, tick: 2 } # nothing changes; no merge ever happens
+  - expect: { state: ready, merged_on_host: false }

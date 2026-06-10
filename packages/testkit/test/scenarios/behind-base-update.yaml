@@ -1,0 +1,13 @@
+# Green but behind the base: one update-branch, then merge once CI re-passes.
+pr:
+  repo: acme/web
+  number: 12
+  enrollment: triggered
+  behindBase: true
+  checks: { lint: success }
+timeline:
+  - { tick: 1 }
+  - expect: { branch_updates: 1, merged_on_host: false }
+  - { advance: 60s, checks: { lint: success }, tick: 1 } # fake clears behindBase on update
+  - expect: { merged_on_host: true }
+  - expect_terminal: merged

@@ -1,0 +1,18 @@
+# A timed-out check is retried via the code host (no task server involved),
+# the re-run goes green, and the PR merges.
+pr:
+  repo: acme/web
+  number: 11
+  enrollment: triggered
+  checks: { e2e: timed_out }
+timeline:
+  - { tick: 1 }
+  - expect:
+      state: awaiting_remediation
+      remediation_triggered: retry-flaky
+      check_retries: 1
+      remediation_triggers_total: 0 # external service never called
+  - { advance: 70s, checks: { e2e: pending }, tick: 1 } # cooldown 60s; re-run in flight
+  - expect: { state: awaiting_checks }
+  - { advance: 30s, checks: { e2e: success }, tick: 1 }
+  - expect_terminal: merged
