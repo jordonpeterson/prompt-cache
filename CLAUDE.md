@@ -1,134 +1,35 @@
-# prompt-cache
+# PR Shepherd — working notes for agents
 
-A Supabase-backed service for storing and semantically searching cached prompt results using OpenAI embeddings.
+Read `README.md` first; it maps the design doc onto the code and lists the intentional deviations. The design doc's TypeScript interfaces are the source of truth — build to the contracts in `packages/core/src/contracts/`, not to prose.
 
-## Stack
+## Hard rules
 
-- **Database**: Supabase (Postgres + pgvector)
-- **Edge Functions**: Deno (Supabase Edge Functions)
-- **Embeddings**: OpenAI `text-embedding-3-small` (1536 dimensions)
+- **Core purity**: `packages/core` must never import an adapter type — no Octokit, Slack, Drizzle, Fastify, or wire-level Zod. All I/O goes through the ports in `core/contracts`. Only `apps/shepherd` wires concrete adapters.
+- **Time is a port**: no `Date.now()` / `setTimeout` in core. Use the injected `ClockPort`; tests use `FakeClock` and manual `controller.tick(now)`.
+- **One action per tick per PR**: every branch of `reconcile` returns after at most one guarded side-effect. Don't add a second.
+- **Idempotency**: side-effects are guarded by deterministic keys (`contracts/ids.ts`) reserved inside the `UnitOfWork` transaction that also commits the state transition. Never fire outside that pattern.
+- **Matcher/response split**: catalog config may only *select* (predicates) and *tune* (cooldown/attempts). New behavior = a new code-registered response kind + schema change, reviewed.
+- **Zod at trust boundaries only**: external API responses, inbound HTTP, config JSON, JSONB deserialization. Never on in-process module hops.
+- **Nothing exits silently**: every transition writes `audit_events`; unmatched signals escalate.
 
-## Local Development
+## Commands
 
 ```bash
-# Start local Supabase stack
-npx supabase start
-
-# Reset DB and reapply all migrations
-npx supabase db reset
-
-# Run via Docker if psql not installed locally
-docker exec supabase_db_prompt-cache psql -U postgres -d postgres -c "<SQL>"
+npm test                  # hermetic suite — must stay green and network-free
+npm run typecheck         # tsc strict, no emit
+npm run test:pg           # Testcontainers suite (needs Docker; CI-only here)
+npm run replay -- packages/testkit/test/scenarios/happy-merge.yaml
+FAKE_ADAPTERS=1 npm start # boot hermetically
 ```
 
-Local URLs after `supabase start`:
-- API: `http://127.0.0.1:54321`
-- Studio: `http://127.0.0.1:54323`
-- DB: `postgresql://postgres:postgres@127.0.0.1:54322/postgres`
+## Adding things
 
-## Database Schema
+- **New remediation pattern handled by an existing fix** → config-only: add/edit a def in `apps/shepherd/config/shepherd.json` (and `TEST_CATALOG` in testkit if tests need it).
+- **New kind of fix** → add a response kind to `contracts/config.ts` + `config-schema.ts`, implement its execution arm in `controller.applyResponse`, add engine/controller tests.
+- **New port method** → add to contracts, implement in the adapter AND every fake in `packages/testkit/src/fakes.ts`, extend the contract test.
+- **Schema change** → edit `packages/persistence/src/schema.ts` + add a numbered SQL file in `packages/persistence/migrations/` + update `rows.ts` mapping and the PG test.
+- **New e2e flow** → prefer a YAML scenario in `packages/testkit/test/scenarios/` over an imperative test.
 
-### `api_keys`
-Represents API consumers with access credentials.
+## Known not-yet-built (phase 2)
 
-| Column | Type | Notes |
-|---|---|---|
-| `user_id` | uuid PK | Auto-generated |
-| `name` | text | Display name |
-| `permissions` | text | `READ` or `WRITE` |
-| `number_of_contributions` | int | Defaults to 0 |
-| `created_at` | timestamptz | Set on insert |
-| `updated_at` | timestamptz | Auto-updated via trigger |
-
-### `results`
-Cached prompt results with semantic embeddings.
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | uuid PK | Auto-generated |
-| `title` | text | |
-| `description` | text | |
-| `embedding` | vector(1536) | OpenAI embedding |
-| `contributor_id` | uuid FK | → `api_keys.user_id` |
-| `number_of_queries` | int | Defaults to 0 |
-| `created_at` | timestamptz | Set on insert |
-| `updated_at` | timestamptz | Auto-updated via trigger |
-
-### `input_jobs`
-Tracks incoming research submissions through their processing lifecycle.
-
-| Column | Type | Notes |
-|---|---|---|
-| `job_id` | uuid PK | Auto-generated |
-| `research_content` | text | Raw input content |
-| `contributor_id` | uuid FK | → `api_keys.user_id` |
-| `status` | text | `NEW` \| `IN_PROCESS` \| `REJECTED` \| `ACCEPTED` |
-| `result_id` | uuid FK (nullable) | → `results.id`, set when accepted |
-| `created_at` | timestamptz | Set on insert |
-| `updated_at` | timestamptz | Auto-updated via trigger |
-
-### `profiles`
-One row per `auth.users` entry, auto-created by the `on_auth_user_created` trigger.
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | uuid PK | FK → `auth.users(id)` ON DELETE CASCADE |
-| `first_name` | text | From `raw_user_meta_data` at signup |
-| `last_name` | text | From `raw_user_meta_data` at signup |
-| `avatar_url` | text | Nullable |
-| `created_at` | timestamptz | Set on insert |
-| `updated_at` | timestamptz | Auto-updated via trigger |
-
-RLS: authenticated users can view/update their own row only.
-
-### `documents` (legacy/search index)
-Stores documents for vector similarity search.
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | uuid PK | |
-| `content` | text | |
-| `metadata` | jsonb | |
-| `embedding` | vector(1536) | HNSW indexed |
-| `created_at` | timestamptz | |
-
-## Migrations
-
-All migrations live in `supabase/migrations/`. Apply with `npx supabase db reset`.
-
-| File | Description |
-|---|---|
-| `20260316201548_vector_search.sql` | pgvector extension, `documents` table, `match_documents` RPC, RLS |
-| `20260316201600_schema.sql` | `api_keys`, `results`, `input_jobs` tables, RLS, HNSW indexes, triggers |
-| `20260316202000_profiles.sql` | `profiles` table, `handle_new_user` trigger, RLS |
-
-## Edge Functions
-
-### `search`
-Performs semantic similarity search over the `documents` table.
-
-- **Auth**: `x-api-key` header validated against `SEARCH_API_KEY` env var
-- **Method**: `POST`
-- **Body**: `{ query: string, match_count?: number, match_threshold?: number }`
-- **Response**: `{ results: [{ id, content, metadata, similarity }] }`
-
-Required secrets:
-```bash
-npx supabase secrets set SEARCH_API_KEY=<key>
-npx supabase secrets set OPENAI_API_KEY=<key>
-```
-
-## Tests
-
-pgTAP tests live in `supabase/tests/database/`. Run with:
-```bash
-npx supabase test db
-```
-
-| File | Coverage |
-|---|---|
-| `01_profiles_trigger.sql` | profiles table shape, trigger insert, cascade delete, RLS anon block |
-
-## RLS
-
-All tables use RLS with `service_role`-only access policies. The edge functions use the `SUPABASE_SERVICE_ROLE_KEY` env var and therefore bypass RLS as intended.
+Webhook receiver (sets `next_reconcile_at = now`), Slack interactivity (close-confirmation modal — manual abandon is `POST /prs/:prId/abandon` for now), Zod→OpenAPI generation for the trigger API, pg-boss scheduler, daily-digest cron wiring (service exists: `DefaultReportService`).

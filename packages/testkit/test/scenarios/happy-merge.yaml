@@ -1,0 +1,15 @@
+# The doc's §13 example: lint fails → autofix → fix lands → CI green → merged.
+pr:
+  repo: acme/web
+  number: 42
+  labels: [auto-shepherd]
+  enrollment: triggered
+  checks: { lint: failure }
+timeline:
+  - { tick: 1 }
+  - expect: { remediation_triggered: eslint-autofix, state: awaiting_remediation }
+  - { advance: 130s, headSha: def456, checks: { lint: pending }, tick: 1 } # fix landed
+  - expect: { state: awaiting_checks }
+  - { advance: 30s, checks: { lint: success }, mergeable: mergeable, tick: 1 }
+  - expect: { merged_on_host: true, notified: merged }
+  - expect_terminal: merged

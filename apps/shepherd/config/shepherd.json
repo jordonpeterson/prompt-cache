@@ -1,0 +1,73 @@
+{
+  "repos": ["acme/web"],
+  "enrollment": {
+    "watchLabels": ["auto-shepherd"],
+    "watchAuthors": []
+  },
+  "catalog": [
+    {
+      "id": "conflict-rebase",
+      "description": "Resolve a merge conflict by rebasing onto base; the task server declines anything non-trivial",
+      "class": "conflict",
+      "match": { "signal": "conflict" },
+      "response": { "kind": "external", "task": "conflict-rebase" },
+      "priority": 10,
+      "cooldownSeconds": 600,
+      "maxAttempts": 1
+    },
+    {
+      "id": "eslint-autofix",
+      "description": "Run eslint --fix and push the result",
+      "class": "mechanical",
+      "match": { "check": "lint*", "conclusion": ["failure"], "logPattern": "eslint" },
+      "response": { "kind": "external", "task": "eslint-autofix" },
+      "priority": 20,
+      "cooldownSeconds": 300,
+      "maxAttempts": 2
+    },
+    {
+      "id": "retry-flaky",
+      "description": "Re-run checks that died of environment, not code",
+      "class": "mechanical",
+      "match": { "check": "*", "conclusion": ["timed_out", "cancelled"] },
+      "response": { "kind": "retry_checks" },
+      "priority": 30,
+      "cooldownSeconds": 120,
+      "maxAttempts": 2
+    }
+  ],
+  "layers": [
+    {
+      "layer": "default",
+      "preferences": {
+        "enabledRemediations": ["conflict-rebase", "eslint-autofix", "retry-flaky"],
+        "endActionDefault": "notify_ready",
+        "keepBranchUpToDate": true,
+        "notifyQuietSeconds": 120,
+        "notifyHardCapSeconds": 1800,
+        "staleEscalateAfterDays": 30
+      }
+    },
+    {
+      "layer": "org",
+      "guardrails": {
+        "disabledRemediationClasses": [],
+        "autoMergeAllowed": true
+      }
+    }
+  ],
+  "identity": {
+    "map": {
+      "octocat": { "transport": "slack", "address": "U0000000000" }
+    },
+    "fallback": { "transport": "slack", "address": "#pr-shepherd" }
+  },
+  "adminDestination": { "transport": "slack", "address": "#pr-shepherd" },
+  "botDenyList": ["dependabot[bot]", "renovate[bot]"],
+  "scheduler": {
+    "tickIntervalMs": 2000,
+    "scanIntervalMs": 60000,
+    "flushIntervalMs": 5000,
+    "claimLimit": 50
+  }
+}

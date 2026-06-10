@@ -1,0 +1,19 @@
+{
+  "name": "@shepherd/app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/main.ts",
+  "dependencies": {
+    "@shepherd/adapter-github": "*",
+    "@shepherd/adapter-remediation": "*",
+    "@shepherd/adapter-slack": "*",
+    "@shepherd/core": "*",
+    "@shepherd/delivery": "*",
+    "@shepherd/persistence": "*",
+    "@shepherd/testkit": "*",
+    "fastify": "^5.2.0",
+    "pino": "^9.6.0",
+    "zod": "^3.24.0"
+  }
+}

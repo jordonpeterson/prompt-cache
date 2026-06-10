@@ -1,14 +1,27 @@
 {
-  "name": "prompt-cache",
-  "version": "1.0.0",
-  "description": "",
-  "main": "dist/index.js",
+  "name": "pr-shepherd",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
-    "build": "tsc"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:pg": "PG_TESTS=1 vitest run packages/persistence",
+    "typecheck": "tsc --noEmit",
+    "start": "tsx apps/shepherd/src/main.ts",
+    "replay": "tsx packages/testkit/src/replay-cli.ts"
   },
-  "dependencies": {},
   "devDependencies": {
-    "typescript": "^5.5.3"
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vite-tsconfig-paths": "^5.1.0",
+    "vitest": "^3.0.0"
   },
-  "private": true
+  "engines": {
+    "node": ">=20"
+  }
 }

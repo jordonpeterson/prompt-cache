@@ -1,0 +1,12 @@
+# Conflict remediation fires once (maxAttempts: 1); no fix lands within c;
+# the second evaluation hits the attempt cap and escalates.
+pr:
+  repo: acme/web
+  number: 7
+  enrollment: triggered
+  mergeable: conflicting
+timeline:
+  - { tick: 1 }
+  - expect: { remediation_triggered: conflict-rebase, state: awaiting_remediation }
+  - { advance: 310s, tick: 1 } # cooldown is 300s; still conflicting, same head
+  - expect: { state: escalated, escalated: exhausted, notified: escalated }

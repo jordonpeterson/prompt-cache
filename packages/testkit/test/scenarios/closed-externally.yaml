@@ -1,0 +1,11 @@
+# A human closes the PR out from under the shepherd → abandoned, audited.
+pr:
+  repo: acme/web
+  number: 9
+  labels: [auto-shepherd]
+  checks: { lint: pending }
+timeline:
+  - { tick: 1 }
+  - expect: { state: awaiting_checks }
+  - { state: closed, advance: 60s, tick: 1 }
+  - expect_terminal: abandoned
