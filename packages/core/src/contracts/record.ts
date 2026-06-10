@@ -5,9 +5,9 @@ export type Enrollment = 'passive' | 'triggered';
 
 export type EndAction = { kind: 'merge' } | { kind: 'notify_ready' };
 
-/** Carried by the trigger API; stamps campaign metadata onto the record. */
+/** Carried by the trigger API / Slack UI; stamps campaign metadata onto the record. */
 export interface TriggerEnvelope {
-  source: 'api' | 'label' | 'author';
+  source: 'api' | 'slack' | 'label' | 'author';
   campaignKey?: string;
   campaignLabel?: string;
   priority?: number;

@@ -26,8 +26,7 @@ function makeStack() {
     codeHost: world.codeHost,
     ingestion: world.ingestion,
     prs: world.prs,
-    audit: world.audit,
-    now: () => world.clock.now(),
+    commands: world.commands,
   });
   return { world, app };
 }

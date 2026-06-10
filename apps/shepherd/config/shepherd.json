@@ -60,7 +60,8 @@
     "map": {
       "octocat": { "transport": "slack", "address": "U0000000000" }
     },
-    "fallback": { "transport": "slack", "address": "#pr-shepherd" }
+    "fallback": { "transport": "slack", "address": "#pr-shepherd" },
+    "adminSlackUserIds": ["U0000000000"]
   },
   "adminDestination": { "transport": "slack", "address": "#pr-shepherd" },
   "botDenyList": ["dependabot[bot]", "renovate[bot]"],

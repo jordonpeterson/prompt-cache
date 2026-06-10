@@ -17,6 +17,8 @@ export interface EnrollmentRules {
   watchAuthors: string[];
 }
 
+const TRIGGERED_SOURCES = new Set(['api', 'slack']);
+
 export class DefaultIngestionService implements IngestionService {
   constructor(
     private readonly prs: PrRepository,
@@ -29,11 +31,11 @@ export class DefaultIngestionService implements IngestionService {
     const existing = await this.prs.get(snapshot.id);
     if (existing) {
       // Re-trigger upgrades a passive enrollment and refreshes campaign metadata.
-      if (trigger && trigger.source === 'api') {
+      if (trigger && TRIGGERED_SOURCES.has(trigger.source)) {
         const upgraded: PrRecord = {
           ...existing,
           enrollment: 'triggered',
-          matchedBy: 'api',
+          matchedBy: trigger.source,
           campaignKey: trigger.campaignKey ?? existing.campaignKey,
           campaignLabel: trigger.campaignLabel ?? existing.campaignLabel,
           priority: trigger.priority ?? existing.priority,
@@ -57,7 +59,7 @@ export class DefaultIngestionService implements IngestionService {
       repo: snapshot.repo,
       number: snapshot.number,
       author: snapshot.author,
-      enrollment: trigger?.source === 'api' ? 'triggered' : 'passive',
+      enrollment: trigger && TRIGGERED_SOURCES.has(trigger.source) ? 'triggered' : 'passive',
       matchedBy: trigger?.source ?? 'api',
       campaignKey: trigger?.campaignKey,
       campaignLabel: trigger?.campaignLabel,

@@ -8,10 +8,12 @@ import {
   CascadeConfigResolver,
   DefaultIngestionService,
   DefaultMergePolicy,
+  DefaultPrCommands,
   DefaultRemediationEngine,
   DefaultReportService,
   DefaultShepherdController,
   EnrollmentScanner,
+  makePrId,
   type ClockPort,
   type CodeHostPort,
   type RemediationServicePort,
@@ -35,7 +37,13 @@ import {
   type Db,
 } from '@shepherd/persistence';
 import { GitHubCodeHost, createOctokit } from '@shepherd/adapter-github';
-import { SlackNotifierTransport } from '@shepherd/adapter-slack';
+import {
+  SlackInteractionHandler,
+  SlackNotifierTransport,
+  StaticSlackAuthz,
+  WebApiSlackGateway,
+  startSlackSocketMode,
+} from '@shepherd/adapter-slack';
 import { HttpRemediationService, singleServerRouter } from '@shepherd/adapter-remediation';
 import {
   FakeCodeHost,
@@ -154,13 +162,45 @@ async function main(): Promise<void> {
     { claimLimit: cfg.scheduler.claimLimit, random: Math.random },
   );
   const reports = new DefaultReportService(prs, (userId) => identity.resolve(userId));
-  void reports; // daily digest cron is wired by the operator (see README)
+  const commands = new DefaultPrCommands(uow, clock);
 
   // ── HTTP trigger API ──────────────────────────────────────────────────────
-  const server = buildServer({ codeHost, ingestion, prs, audit, now: () => clock.now() });
+  const server = buildServer({ codeHost, ingestion, prs, commands });
   const port = Number(process.env['PORT'] ?? 3000);
   await server.listen({ port, host: '0.0.0.0' });
   log.info({ port }, 'trigger API listening');
+
+  // ── Slack as UI: inbound interactivity over Socket Mode (no public URL) ──
+  let stopSlack: (() => Promise<void>) | null = null;
+  const slackAppToken = process.env['SLACK_APP_TOKEN'];
+  if (!fakeMode && slackToken && slackAppToken) {
+    const authz = StaticSlackAuthz.fromIdentityMap(cfg.identity.map, cfg.identity.adminSlackUserIds);
+    const handler = new SlackInteractionHandler({
+      commands,
+      getRecord: (prId) => prs.get(prId),
+      authz,
+      gateway: WebApiSlackGateway.fromToken(slackToken),
+      enroll: async (repo, number, slackUserId, endAction) => {
+        const prId = makePrId('github', repo, number);
+        const snapshot = await codeHost.getPr(prId);
+        if (!snapshot) return `:grey_question: ${prId} not found on the code host.`;
+        await ingestion.ingest(snapshot, {
+          source: 'slack',
+          endAction: { kind: endAction ?? 'merge' },
+          campaignKey: `slack:${slackUserId}`,
+        });
+        return `:eyes: Tracking ${prId} (end action: ${endAction ?? 'merge'}).`;
+      },
+      digest: async (slackUserId) => (await reports.buildDailyDigest(slackUserId, clock.now())).payload.text,
+    });
+    ({ stop: stopSlack } = await startSlackSocketMode(
+      { botToken: slackToken, appToken: slackAppToken },
+      handler,
+      { info: (msg) => log.info(msg), error: (obj, msg) => log.error(obj as object, msg) },
+    ));
+  } else if (!fakeMode && slackToken) {
+    log.warn('SLACK_APP_TOKEN not set — Slack notifications only, no interactivity');
+  }
 
   // ── Scheduler: cheap wakes; per-PR cadence lives in next_reconcile_at (§11)
   const timers = [
@@ -191,6 +231,7 @@ async function main(): Promise<void> {
   const shutdown = async () => {
     log.info('shutting down');
     for (const t of timers) clearInterval(t);
+    if (stopSlack) await stopSlack();
     await server.close();
     process.exit(0);
   };

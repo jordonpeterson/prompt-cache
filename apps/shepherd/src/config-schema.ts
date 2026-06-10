@@ -70,6 +70,8 @@ export const shepherdConfigSchema = z.object({
   identity: z.object({
     map: z.record(destinationSchema).default({}),
     fallback: destinationSchema,
+    /** Slack user ids allowed to act on ANY PR from the Slack UI. */
+    adminSlackUserIds: z.array(z.string()).default([]),
   }),
   adminDestination: destinationSchema,
   botDenyList: z.array(z.string()).default([]),

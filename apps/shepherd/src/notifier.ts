@@ -1,4 +1,5 @@
 import type { PrRecord, ShepherdNotifier } from '@shepherd/core';
+import { escalationActionsBlock, readyActionsBlock } from '@shepherd/adapter-slack';
 import type { DebouncePolicy, DeliveryService, Destination, IdentityMap } from '@shepherd/delivery';
 
 /**
@@ -28,24 +29,29 @@ export class DeliveryShepherdNotifier implements ShepherdNotifier {
               text: `:rotating_light: *${record.repo}#${record.number}* escalated\n>${reason}\nShepherd has paused autonomous actions; push a commit to resume.`,
             },
           },
+          // Slack-as-UI: buttons route back through the interaction handler.
+          escalationActionsBlock(record.id),
         ],
       },
       dedupKey: `escalated:${record.id}:${record.escalation?.at.toISOString() ?? reason}`,
     });
   }
 
-  /** Ready/merged are routine: debounced into the author's batch. */
+  /** Ready is interactive (it carries a button), so it sends immediately, not debounced. */
   async prReady(record: PrRecord): Promise<void> {
     const author = this.identity.resolve(record.author);
-    await this.delivery.enqueueDebounced(
-      `pr-events:${author.transport}:${author.address}`,
-      {
-        destinations: [author],
-        payload: { text: `:white_check_mark: ${record.repo}#${record.number} is green and ready to merge.` },
-        dedupKey: `ready:${record.id}:${record.lastInteractionAt.toISOString()}`,
+    const text = `:white_check_mark: ${record.repo}#${record.number} is green and ready to merge.`;
+    await this.delivery.notify({
+      destinations: [author],
+      payload: {
+        text,
+        blocks: [
+          { type: 'section', text: { type: 'mrkdwn', text } },
+          readyActionsBlock(record.id),
+        ],
       },
-      this.debounce,
-    );
+      dedupKey: `ready:${record.id}:${record.lastInteractionAt.toISOString()}`,
+    });
   }
 
   async prMerged(record: PrRecord): Promise<void> {

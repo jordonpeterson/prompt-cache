@@ -2,9 +2,9 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import {
   makePrId,
-  type AuditLog,
   type CodeHostPort,
   type IngestionService,
+  type PrCommands,
   type PrRepository,
 } from '@shepherd/core';
 
@@ -28,8 +28,7 @@ export interface ServerDeps {
   codeHost: CodeHostPort;
   ingestion: IngestionService;
   prs: PrRepository;
-  audit: AuditLog;
-  now: () => Date;
+  commands: PrCommands;
 }
 
 export function buildServer(deps: ServerDeps): FastifyInstance {
@@ -72,24 +71,22 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
 
   /**
    * Manual hard-terminal (§15): 'abandoned' is the only state a human sets
-   * directly — the Slack close-confirmation modal will land here too.
+   * directly. Same PrCommands path the Slack close-confirmation modal uses.
    */
   app.post('/prs/:prId/abandon', async (req, reply) => {
     const parsed = abandonBodySchema.safeParse(req.body);
     if (!parsed.success) return reply.status(400).send({ error: parsed.error.flatten() });
     const { prId } = req.params as { prId: string };
-    const record = await deps.prs.get(decodeURIComponent(prId));
-    if (!record) return reply.status(404).send({ error: 'not tracked' });
-    if (record.terminalAt) return reply.status(409).send({ error: `already terminal: ${record.lifecycleState}` });
-    const now = deps.now();
-    await deps.prs.upsert({ ...record, lifecycleState: 'abandoned', terminalAt: now });
-    await deps.audit.record({
-      prId: record.id,
-      type: 'terminal',
-      payload: { state: 'abandoned', reason: parsed.data.reason, by: 'manual' },
-      at: now,
+    const result = await deps.commands.abandon(decodeURIComponent(prId), {
+      reason: parsed.data.reason,
+      actor: 'http',
     });
-    return { prId: record.id, state: 'abandoned' };
+    if (!result.ok) {
+      return result.reason === 'not_found'
+        ? reply.status(404).send({ error: 'not tracked' })
+        : reply.status(409).send({ error: 'already terminal' });
+    }
+    return { prId: result.record.id, state: 'abandoned' };
   });
 
   return app;

@@ -71,6 +71,21 @@ GITHUB_CONTRACT=1 GITHUB_TOKEN=... GITHUB_CONTRACT_REPO=o/r GITHUB_CONTRACT_PR=1
 
 Passive enrollment (watch labels/authors) is configured in `apps/shepherd/config/shepherd.json` and runs as a periodic sweep.
 
+## Slack as the UI
+
+Slack plays both hexagon roles:
+
+- **Driven (outbound):** notifications flow through the generic `delivery` package; `DeliveryShepherdNotifier` owns the templates. Escalation messages carry *Re-evaluate now* / *Abandon…* buttons; ready messages carry *Merge when green* (and send immediately — interactivity is never debounced).
+- **Driving (inbound):** `SlackInteractionHandler` (in `adapter-slack`) parses interaction payloads at the trust boundary and maps them onto `PrCommands` — the same command service the HTTP API uses. Production transport is Bolt **Socket Mode** (`SLACK_APP_TOKEN`, no public URL); the handler itself is transport-free and fully testable with mock payloads.
+
+The cardinal rule: **the Slack UI never mutates lifecycle state.** Buttons either nudge timing (`reconcileNow`), record human intent (`setEndAction`), or invoke the one manual hard-terminal (`abandon`, always behind a confirmation modal). Everything else is derived by the reconcile loop.
+
+Slash commands: `/shepherd status <repo>#<n>` · `/shepherd track <repo>#<n> [merge|notify]` · `/shepherd abandon <repo>#<n> <reason>` · `/shepherd digest`.
+
+Authorization (`StaticSlackAuthz`): admins (`identity.adminSlackUserIds` in config) may act on any PR; a Slack user mapped in the identity config may act on their own PRs; reads are open. This is list-based, single-workspace authz — still the design doc's known debt before real org write access.
+
+Slack app manifest requirements: bot scopes `chat:write` (+ `chat:write.customize`), interactivity enabled, a `/shepherd` slash command, and an app-level token with `connections:write` for Socket Mode.
+
 ## Configuration
 
 Static policy lives in git JSON (`apps/shepherd/config/shepherd.json`, override path with `SHEPHERD_CONFIG`): the remediation **catalog**, layer cascade, enrollment rules, identity map, bot deny-list, scheduler cadence. **No secrets in git** — credentials come from `.env` (see `.env.example`).
@@ -119,7 +134,7 @@ Each of these was forced by an internal contradiction or missing field in the do
 - **`ConfigResolver.resolve(prId, perPr?)`** — the doc's `resolve(prId)` is sync, so it can't read the DB; the caller (controller) passes the record's trigger-time overrides as the most-specific layer.
 - **`MatchPredicate.signal: 'checks'|'conflict'`** — a merge conflict isn't a check; conflict-class defs need something to match on.
 - **Repository additions** — `PrRepository.listActive()` (digest input) and a lease inside `claimDueForReconcile` (so `SKIP LOCKED` workers don't hold row locks across reconciles).
-- **Slack interactivity (close-confirmation modal) is not wired** — the manual-abandon seam exists as `POST /prs/:prId/abandon`; Bolt/Socket-Mode wiring is phase 2, as is the webhook receiver and Zod→OpenAPI generation.
+- **Phase-2 items still open:** the GitHub webhook receiver and Zod→OpenAPI generation. (Slack interactivity — originally phase 2 — is now built: buttons, the abandon close-confirmation modal, slash commands, Socket Mode.)
 
 ## Open decisions (§15) — current working defaults
 

@@ -6,4 +6,5 @@ export * from './ports.js';
 export * from './repositories.js';
 export * from './config.js';
 export * from './services.js';
+export * from './commands.js';
 export * from './notifications.js';

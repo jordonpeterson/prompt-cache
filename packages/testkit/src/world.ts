@@ -2,6 +2,7 @@ import {
   CascadeConfigResolver,
   DefaultIngestionService,
   DefaultMergePolicy,
+  DefaultPrCommands,
   DefaultRemediationEngine,
   DefaultShepherdController,
   type ConfigLayerInput,
@@ -95,13 +96,14 @@ export function buildWorld(opts: WorldOptions = {}) {
   const engine = new DefaultRemediationEngine(codeHost);
   const mergePolicy = new DefaultMergePolicy();
   const ingestion = new DefaultIngestionService(prs, audit, clock);
+  const commands = new DefaultPrCommands(uow, clock);
   const controller = new DefaultShepherdController(
     { codeHost, remediationService, clock, uow, prs, resolver, engine, mergePolicy, notifier },
     opts.controller,
   );
   return {
     clock, codeHost, remediationService, prs, idempotency, audit, uow,
-    notifier, resolver, engine, mergePolicy, ingestion, controller,
+    notifier, resolver, engine, mergePolicy, ingestion, commands, controller,
   };
 }
 

@@ -30,6 +30,12 @@ FAKE_ADAPTERS=1 npm start # boot hermetically
 - **Schema change** → edit `packages/persistence/src/schema.ts` + add a numbered SQL file in `packages/persistence/migrations/` + update `rows.ts` mapping and the PG test.
 - **New e2e flow** → prefer a YAML scenario in `packages/testkit/test/scenarios/` over an imperative test.
 
+## Slack UI rules
+
+- Inbound Slack lives in `packages/adapter-slack` (`interactions.ts`); it may ONLY call `PrCommands` + reads. A button must never mutate lifecycle state — the loop is the only writer. Abandon always goes through the confirmation modal.
+- The action-id schema (`actions.ts`) is the outbound↔inbound contract; notifier templates and the handler must stay in sync through it.
+- New Slack capability = handler change + payload fixture test in `packages/adapter-slack/test/` + (if it acts) a `PrCommands` method shared with the HTTP API.
+
 ## Known not-yet-built (phase 2)
 
-Webhook receiver (sets `next_reconcile_at = now`), Slack interactivity (close-confirmation modal — manual abandon is `POST /prs/:prId/abandon` for now), Zod→OpenAPI generation for the trigger API, pg-boss scheduler, daily-digest cron wiring (service exists: `DefaultReportService`).
+Webhook receiver (sets `next_reconcile_at = now`), Zod→OpenAPI generation for the trigger API, pg-boss scheduler, daily-digest cron wiring (service exists: `DefaultReportService`; `/shepherd digest` serves it on demand).
