@@ -36,6 +36,8 @@ Dependency rule: `core` imports nothing but its own contracts. Adapters depend o
 
 ## Quick start
 
+**New here? Follow [GETTING_STARTED.md](GETTING_STARTED.md)** — zero to running app, step by step.
+
 ```bash
 npm install
 npm test                  # hermetic suite: unit + integration + e2e scenarios (no network)
